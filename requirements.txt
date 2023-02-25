@@ -1,2 +1,6 @@
 numpy
 nibabel
+
+#for metric computation we use the torch library
+torch
+torchmetrics
