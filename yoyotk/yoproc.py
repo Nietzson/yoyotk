@@ -5,16 +5,6 @@ import numpy as np
 import nibabel as nib
 
 
-def file_lister(FILETYPE, folder_path):
-    '''Browse the folder_path directory and create a file_list of file containing
-    the FILETYPE string in their name'''
-    file_list = []
-    for index, file in enumerate(glob.glob(folder_path)):
-        if FILETYPE in file:
-            file_list.append(file)
-
-    return file_list
-
 
 def midway_copyer(file_list, input_path):
   '''Copy file from folder to the midway input path.

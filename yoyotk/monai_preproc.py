@@ -71,7 +71,9 @@ def compute_dice(inf_path, segpath):
       inf_data = nib.load(inf_file_path).get_fdata()
       label_path = os.path.join(segpath, f"HGG/{folder.split('_t1ce')[0]}/{folder.split('_t1ce')[0]}_seg.nii")
       if os.path.exists(label_path) == False:
-          label_path = os.path.join(segpath, f"LGG/{folder.split('_t1ce')[0]}/{folder.split('_t1ce')[0]}_seg.nii")
+        label_path = os.path.join(segpath, f"LGG/{folder.split('_t1ce')[0]}/{folder.split('_t1ce')[0]}_seg.nii")
+      if os.path.exists(label_path) == False:
+        label_path = os.path.join(segpath, f"{folder.split('_t1ce')[0]}/{folder.split('_t1ce')[0]}_seg.nii")
       label_img = nib.load(label_path)
       label_data = label_img.get_fdata()
       #Creating tensors from arrays
