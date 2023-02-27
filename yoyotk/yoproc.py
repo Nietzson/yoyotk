@@ -4,21 +4,48 @@ import glob
 import numpy as np
 import nibabel as nib
 
+import yaml
 
 
-def midway_copyer(file_list, input_path):
-  '''Copy file from folder to the midway input path.
+
+def midway_copyer(input_path, file_list = None, template = None, folder_list = None, FILETYPE = None):
+  '''
+  Running this method remove the current content of input_path!
+  Copy file from folder to the midway input path.
   Also changes the name of the file in the  input folder, adding an index number at the end of the filename
-  for midway processing.'''
-  for index, file in enumerate(file_list):
-      os.system(f"cp {file} {os.path.join(input_path, file.split('/')[-1][:-4])}_{index+1}.nii")
+  for midway processing.
+  When a template path is given, the copyer prepare folders for each patient, with the input file FILETYPE indicating the modality chosen, to
+  run a patient to template midway mapping.'''
+
+  #Cleaning the input datapath
+  os.system(f"rm -rf {input_path}/*")
+  if template == None:
+    for index, file in enumerate(file_list):
+        os.system(f"cp {file} {os.path.join(input_path, file.split('/')[-1][:-4])}_{index+1}.nii")
+  else:
+    print(f"Template analysis, using template at {template}")
+    for folder in folder_list:
+      os.system(f"mkdir {input_path}/{folder.split('/')[-1]}")
+      os.system(f"cp {template} {input_path}/{folder.split('/')[-1]}/{template.split('/')[-1][:-4]}_1.nii")
+      for file in glob.glob(os.path.join(folder, '*')):
+        if FILETYPE in file:
+          os.system(f"cp {file} {input_path}/{folder.split('/')[-1]}/{file.split('/')[-1][:-4]}_2.nii")
+
 
   return f'File succefully copied to {input_path}'
 
-def index_list_printer(file_list):
-  '''Returns a list of index, that can be used to fill the midway config.yaml file'''
-  array = np.arange(1, len(file_list)+1)
-  return array
+def update_config(yamlpath, time_to_compare):
+  '''Update the config file for midway'''
+  with open(yamlpath, 'r') as f:
+    config = yaml.safe_load(f)
+    if config is None:
+      return 'Config is None!!!'
+    config['MRI_cases']['Times_to_compare'] = [time + 1 for time in range(time_to_compare)]
+  with open(yamlpath, 'w') as f:
+    yaml.dump(config, f)
+    # list(np.arange(1,time_to_compare +1))
+
+  return 'config.yaml Updated.'
 
 def run_midway(midway_path):
   '''Run midway from CLI from package root folder.'''
