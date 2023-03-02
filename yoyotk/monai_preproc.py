@@ -23,6 +23,9 @@ def inference_datalist(datapath, jsonpath):
     folder_list = glob.glob(os.path.join(datapath, '*'), recursive = True)
   elif ".nii" in glob.glob(os.path.join(datapath, '*', '*', '*'), recursive = True)[0]:
     folder_list = glob.glob(os.path.join(datapath, '*', '*'), recursive = True)
+  elif ".nii" in glob.glob(os.path.join(datapath, '*', '*', '*'), recursive = True)[0]:
+    folder_list = glob.glob(os.path.join(datapath, '*', '*'), recursive = True)
+
   print(folder_list)
   for folder in folder_list:
     file_dict = {}

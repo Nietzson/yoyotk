@@ -72,7 +72,7 @@ def to_brats_format(midwaypath, outputpath, template_path = None):
     subdirs = glob.glob(os.path.join(template_path, '*'), recursive = True)
     for dirs in subdirs:
       if '.' in dirs:
-        os.system(f"cp {dirs} {outputpath}/{dirs.split('/')[-1]}")
+        os.system(f"cp -R {dirs} {outputpath}/{dirs.split('/')[-1]}")
       else:
         os.system(f"mkdir {outputpath}/{dirs.split('/')[-1]}")
 
@@ -81,6 +81,10 @@ def to_brats_format(midwaypath, outputpath, template_path = None):
   if template_path != None:
     for template_file in template_files:
       for midway_file in midway_files:
+        if '.' not in midway_file:
+          for subfile in glob.glob(os.path.join(midway_file, '*')):
+            if ('.txt' or 'template_centered') not in subfile:
+              midway_file = subfile
         if template_file.split('/')[-1][:-7] in midway_file:
           subdir = template_file.split('/')[-3]
           file_folder = template_file.split('/')[-2]
@@ -88,8 +92,49 @@ def to_brats_format(midwaypath, outputpath, template_path = None):
             os.system(f"mkdir {outputpath}/{subdir}/{file_folder}")
             for file in glob.glob(os.path.join(template_path, subdir, file_folder, '*')):
               if 'seg' in file:
-                os.system(f"cp {file} {outputpath}/{subdir}/{file_folder}/{file.split('/')[-1]}")
+                os.system(f"cp -R {file} {outputpath}/{subdir}/{file_folder}/{file.split('/')[-1]}")
 
-          os.system(f"cp {midway_file} {outputpath}/{subdir}/{file_folder}/{midway_file.split('/')[-1]}")
+          os.system(f"cp -R {midway_file} {outputpath}/{subdir}/{file_folder}/{midway_file.split('/')[-1]}")
 
     return f'Brats formated folder created at {outputpath}'
+
+def omat_to_template(inputpath, templatepath, outputpath = None, transpose = None, flip = None):
+  '''Copy template transformation matrix to inputpath file. Be aware that this does not actually register the input file,
+  only copy header information
+  the output image can be fliped or transposed if needed, unsing np.flip or np.transpose arguement
+  ---
+  inputpath: path to input NIfTI to change the omat on
+  templatepath: path to a template NIfTI providing the desired omat
+  transpose: default = None. A tuple indicating the tranposition argument for numpy.transpose()
+  flip: default = None. An integer indicating the axis to flip, argument of numpy.flip()'''
+
+  if outputpath == None:
+    outputpath = inputpath
+
+  template = nib.load(templatepath)
+  input_ = nib.load(inputpath)
+
+  tmp_hdr = template.header
+  input_hdr = input_.header
+
+  tmp_aff = template.affine
+  input_aff = input_.affine
+
+  #Copy header information
+  input_hdr['srow_x'] = tmp_hdr['srow_x']
+  input_hdr['srow_y'] = tmp_hdr['srow_y']
+  input_hdr['srow_z'] = tmp_hdr['srow_z']
+
+  output_data  = input_.get_fdata()
+
+  if transpose != None:
+    output_data = np.transpose(input_.get_fdata(), transpose)
+
+  if flip != None:
+    output_data = np.flip(input_.get_fdata(), flip)
+
+  #Save file at
+  Nii_structure = nib.Nifti1Image(output_data, affine = tmp_aff, header = input_hdr)
+  nib.loadsave.save(Nii_structure, outputpath)
+
+  return f"omat changed, output at {outputpath}"
