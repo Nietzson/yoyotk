@@ -11,8 +11,11 @@ import nibabel as nib
 # from torchvision import transforms
 from torchmetrics import Dice
 import torch
+import monai
+from sklearn.model_selection import train_test_split
 
-def inference_datalist(datapath, jsonpath):
+
+def inference_datalist(datapath, jsonpath, training = False):
   '''Create the dalalist.json file, using all file in datapath for inference'''
   json_dict = {}
   json_dict['training'] = []
@@ -35,19 +38,28 @@ def inference_datalist(datapath, jsonpath):
         seg = file
       elif '_t1ce' in file:
         t1ce = file
-      elif 't1' in file:
+      elif '_t1' in file:
         t1 = file
-      elif 't2' in file:
+      elif '_t2' in file:
         t2 = file
-      elif 'flair' in file:
+      elif '_flair' in file:
         flair = file
     file_dict['label'] = seg
     file_dict['image'] = [t1ce, t1, t2, flair]
     json_dict['testing'].append(file_dict)
 
+  if training == True:
+    monai.utils.set_determinism(seed=123)
+    train_list, other_list = train_test_split(json_dict['testing'], train_size=200)
+    val_list, test_list = train_test_split(other_list, train_size=0.5)
+    json_dict = {"training": train_list, "validation": val_list, "testing": test_list}
+
   with open(jsonpath, 'w+') as f:
     json.dump(json_dict, f, indent = 2)
     f.close()
+
+
+
 
   return f'datalist created at path {jsonpath}'
 

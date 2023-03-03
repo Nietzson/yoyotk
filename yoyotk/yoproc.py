@@ -83,7 +83,7 @@ def to_brats_format(midwaypath, outputpath, template_path = None):
       for midway_file in midway_files:
         if '.' not in midway_file:
           for subfile in glob.glob(os.path.join(midway_file, '*')):
-            if ('.txt' or 'template_centered') not in subfile:
+            if ('.txt' not in subfile) and ('template_centered' not in subfile):
               midway_file = subfile
         if template_file.split('/')[-1][:-7] in midway_file:
           subdir = template_file.split('/')[-3]
