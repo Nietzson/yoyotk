@@ -20,8 +20,11 @@ def midway_copyer(input_path, file_list = None, template = None, folder_list = N
   #Cleaning the input datapath
   os.system(f"rm -rf {input_path}/*")
   if template == None:
-    for index, file in enumerate(file_list):
+    index = 1
+    for file in file_list:
+      if FILETYPE in file:
         os.system(f"cp {file} {os.path.join(input_path, file.split('/')[-1][:-4])}_{index+1}.nii")
+        index += 1
   else:
     print(f"Template analysis, using template at {template}")
     for folder in folder_list:
@@ -34,13 +37,15 @@ def midway_copyer(input_path, file_list = None, template = None, folder_list = N
 
   return f'File succefully copied to {input_path}'
 
-def update_config(yamlpath, time_to_compare):
+def update_config(yamlpath, time_to_compare, patch_nber = 4):
   '''Update the config file for midway'''
   with open(yamlpath, 'r') as f:
     config = yaml.safe_load(f)
     if config is None:
-      return 'Config is None!!!'
+      raise TypeError('Cannot read the yaml file. It is either empty or there was an issue loading it.')
     config['MRI_cases']['Times_to_compare'] = [time + 1 for time in range(time_to_compare)]
+    if patch_nber != 4:
+      config['Midway']['Patch_nber'] = patch_nber
   with open(yamlpath, 'w') as f:
     yaml.dump(config, f)
     # list(np.arange(1,time_to_compare +1))
@@ -138,3 +143,63 @@ def omat_to_template(inputpath, templatepath, outputpath = None, transpose = Non
   nib.loadsave.save(Nii_structure, outputpath)
 
   return f"omat changed, output at {outputpath}"
+
+
+def dict_create(acqlist = [], fill = False, datapath = None):
+  '''Create a directory with as many keys as there is values in acqlist. The values will alxays be a dictionnary with t1, t1 e, t2,
+  and flair modalities and a segmentation key.
+  If fill == True, the list will be filles with files from datapath, assuming the files and dictionnaries are correctly named.
+  acqlist: The list of acquisition to add in the directory. Default: []'''
+  if acqlist == []:
+      dico = {
+        'acq':{
+          't1': [],
+          't1ce': [],
+          't2': [],
+          'flair': [],
+          'seg': []
+      }
+      }
+  else:
+    dico = {}
+    for i in acqlist:
+      dico[i] = {
+        't1': [],
+        't1ce':[],
+        't2': [],
+        'flair': [],
+        'seg': []
+    }
+
+
+  if fill == True:
+      #Determine the where the data files are
+    if ".nii" in glob.glob(os.path.join(datapath, '*', '*'), recursive = True)[0]:
+      folder_list = glob.glob(os.path.join(datapath, '*', '*'), recursive = True)
+    elif ".nii" in glob.glob(os.path.join(datapath, '*', '*', '*'), recursive = True)[0]:
+      folder_list = glob.glob(os.path.join(datapath, '*', '*', '*'), recursive = True)
+
+  for files in folder_list:
+    for keys in list(dico.keys()):
+      if keys in files.split('/')[-1]:
+          dico[keys] = dict_filler(files, dico[keys])
+
+  return dico
+
+def dict_filler(file, dico):
+    '''Used with database contanining image from different modality for each patient.
+    Class the image in the correct modality list
+    file: the image file to be classed
+    dico: A dictionnary containing the different modality type as keys, and lists as values.'''
+
+    if 't1.' in file:
+        dico['t1'].append(file)
+    elif 't1ce.' in file:
+        dico['t1ce'].append(file)
+    elif 't2.' in file:
+        dico['t2'].append(file)
+    elif 'flair' in file:
+        dico['flair'].append(file)
+    elif 'seg.' in file:
+        dico['seg'].append(file)
+    return dico

@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 
 def inference_datalist(datapath, jsonpath, training = False):
   '''Create the dalalist.json file, using all file in datapath for inference'''
+  folder_list = None
   json_dict = {}
   json_dict['training'] = []
   json_dict['validation'] = []
@@ -29,7 +30,10 @@ def inference_datalist(datapath, jsonpath, training = False):
   elif ".nii" in glob.glob(os.path.join(datapath, '*', '*', '*'), recursive = True)[0]:
     folder_list = glob.glob(os.path.join(datapath, '*', '*'), recursive = True)
 
+  if folder_list == None:
+    raise ValueError ('The data folder has not been identified. Check the path given to the inference_datalist().')
   print(folder_list)
+
   for folder in folder_list:
     file_dict = {}
     file_list = glob.glob(f"{folder}/*")
