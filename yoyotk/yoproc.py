@@ -1,10 +1,13 @@
 import os
 import glob
+import re
 
 import numpy as np
 import nibabel as nib
+import matplotlib.pyplot as plt
 
 import yaml
+import matplotlib
 
 
 
@@ -90,6 +93,9 @@ def to_brats_format(midwaypath, outputpath, template_path = None):
           for subfile in glob.glob(os.path.join(midway_file, '*')):
             if ('.txt' not in subfile) and ('template_centered' not in subfile):
               midway_file = subfile
+        if 'midway_mapped' in template_file:
+          template_file = re.split('_(\d*)_midway_mapped', template_file)[0] + 'placeho'
+          print(template_file)
         if template_file.split('/')[-1][:-7] in midway_file:
           subdir = template_file.split('/')[-3]
           file_folder = template_file.split('/')[-2]
@@ -174,15 +180,24 @@ def dict_create(acqlist = [], fill = False, datapath = None):
 
   if fill == True:
       #Determine the where the data files are
-    if ".nii" in glob.glob(os.path.join(datapath, '*', '*'), recursive = True)[0]:
+    if (".nii" or ".nii.gz") in glob.glob(os.path.join(datapath, '*', '*'), recursive = True)[0]:
       folder_list = glob.glob(os.path.join(datapath, '*', '*'), recursive = True)
-    elif ".nii" in glob.glob(os.path.join(datapath, '*', '*', '*'), recursive = True)[0]:
+    elif (".nii" or ".nii.gz") in glob.glob(os.path.join(datapath, '*', '*', '*'), recursive = True)[0]:
       folder_list = glob.glob(os.path.join(datapath, '*', '*', '*'), recursive = True)
+    elif (".nii" or ".nii.gz") in glob.glob(os.path.join(datapath, '*', '*', '*', '*'), recursive = True)[0]:
+      folder_list = glob.glob(os.path.join(datapath, '*', '*', '*', '*'), recursive = True)
+    elif (".nii" or ".nii.gz") in glob.glob(os.path.join(datapath, '*', '*', '*', '*', '*'), recursive = True)[0]:
+      folder_list = glob.glob(os.path.join(datapath, '*', '*', '*', '*', '*'), recursive = True)
 
-  for files in folder_list:
-    for keys in list(dico.keys()):
-      if keys in files.split('/')[-1]:
-          dico[keys] = dict_filler(files, dico[keys])
+
+  if acqlist != []:
+    for files in folder_list:
+      for keys in list(dico.keys()):
+        if keys in files and (files.endswith('.nii') or files.endswith('.nii.gz')):
+            dico[keys] = dict_filler(files, dico[keys])
+  else:
+    for files in folder_list:
+      dico['acq'] = dict_filler(files, dico['acq'])
 
   return dico
 
@@ -192,14 +207,169 @@ def dict_filler(file, dico):
     file: the image file to be classed
     dico: A dictionnary containing the different modality type as keys, and lists as values.'''
 
-    if 't1.' in file:
-        dico['t1'].append(file)
-    elif 't1ce.' in file:
+    if 't1ce' in file:
         dico['t1ce'].append(file)
-    elif 't2.' in file:
+    elif 't1' in file:
+        dico['t1'].append(file)
+    elif 't2' in file:
         dico['t2'].append(file)
     elif 'flair' in file:
         dico['flair'].append(file)
-    elif 'seg.' in file:
+    elif 'seg' in file:
         dico['seg'].append(file)
+    for keys in list(dico.keys()):
+      dico[keys] = sorted(dico[keys])
     return dico
+
+def snapshot(path, filename, batch, figsize  = (8, 115), direction = 'start'):
+  '''Create a snapshot of Brats18 structured data.
+  datapath: Path of the data to snapshot
+  filename: name of the snapshot file
+  batch: Number of files to take into the snapshot. The snapshot function will be repeated until there is all files have been snapshoted.
+  figsize: Size of the final plot
+  direction: {'start', 'end') Whether to take the first or the last <batch> files in the list
+  /!\ Batching currently bugged probably because of matplotlib backend
+  '''
+
+  #Create patient list
+  patient_list = []
+  for name in glob.glob(os.path.join(path, '*', '*')):
+      tag = name.split('/')[-1]
+      patient_list.append(tag)
+  patient_list.sort()
+  patient_list
+
+  #Create image arrays and plot
+  BATCH = batch
+  if direction == 'start':
+    listfiles = patient_list[:BATCH]
+    debut = 1
+    fin = BATCH
+  elif direction == 'end':
+    listfiles = patient_list[BATCH:]
+    debut = len(patient_list) - BATCH
+    fin = len(patient_list)
+  else:
+    return f"Incorrect value for direction == {direction}"
+
+  all_files = glob.glob(os.path.join(path, '*', '*', '*'))
+  #List used to concatenate images afterward
+  concall = np.zeros((50,50))
+  print(f'=============== Batch = {BATCH} ===============')
+  # #Initliating step counter for the while loop
+  # iter = 0
+  # current = []
+  # while current != patient_list:
+  #   if len(patient_list) <= BATCH:
+  #     current = patient_list
+  #     start = iter * BATCH
+  #     end = start + len(current)
+  #     print(f"===============Snapshoting files {start} to {end}...===============")
+  #     patient_names = []
+  #     for patient in current:
+  #         patient_files = []
+  #         for file in all_files:
+  #             if patient in file and "_seg." not in file:
+  #                 patient_files.append(file)
+  #         patient_files.sort()
+  #         name = patient_files[0].split('Brats18_')[-1].split(f"_flair")[0]
+  #         patient_names.append(name)
+  #         #Load images
+  #         base_list = []
+  #         for file in patient_files:
+  #             img = nib.load(file)
+  #             data = img.get_fdata()
+  #             base_list.append(np.transpose(data[:,:,int(data.shape[-1] / 2)]))
+  #         conc = np.concatenate(np.array(base_list), axis = 1)
+  #         if np.array_equal(concall, np.zeros((50,50))):
+  #             concall = conc
+  #         else:
+  #             concall = np.concatenate([concall, conc], axis = 0)
+  #     iter += 1
+  #     #Creating filename
+  #     batch_filename = f"{filename.split('.')[0]}_{start}-{end}.{filename.split('.')[1]}"
+  #     print("=============== Done ===============")
+  #   else:
+  #     current = patient_list[:BATCH]
+  #     start = iter * BATCH
+  #     end = start + BATCH
+  #     print(f"===============Snapshoting files {start} to {end}...===============")
+  #     patient_names = []
+  #     for patient in current:
+  #         patient_files = []
+  #         for file in all_files:
+  #             if patient in file and "_seg." not in file:
+  #                 patient_files.append(file)
+  #         patient_files.sort()
+  #         name = patient_files[0].split('Brats18_')[-1].split(f"_flair")[0]
+  #         patient_names.append(name)
+  #         #Load images
+  #         base_list = []
+  #         for file in patient_files:
+  #             img = nib.load(file)
+  #             data = img.get_fdata()
+  #             base_list.append(np.transpose(data[:,:,int(data.shape[-1] / 2)]))
+  #         conc = np.concatenate(np.array(base_list), axis = 1)
+  #         if np.array_equal(concall, np.zeros((50,50))):
+  #             concall = conc
+  #         else:
+  #             concall = np.concatenate([concall, conc], axis = 0)
+  #     iter += 1
+  #     #Updating patient_list to remove files already snapshot
+  #     patient_list = patient_list[BATCH:]
+  #     #Creating filename
+  #     batch_filename = f"{filename.split('.')[0]}_{start}-{end}.{filename.split('.')[1]}"
+  #     print("=============== Done ===============")
+
+  #   print('Creating figure')
+  #   plt.figure(figsize = (8, 115))
+  #   plt.axis('off')
+  #   for i, name in enumerate(patient_names):
+  #       y = concall.shape[0] / int(len(patient_names) * 2) + (concall.shape[0] / len(patient_names)) * i
+  #       x = -250
+  #       plt.text(x, y, name, fontsize=12, ha='center', va='bottom')
+  #   for i, cond in enumerate(['FLAIR', 'T1', 'T1CE','T2']):
+  #       x = concall.shape[1] / 8 + (concall.shape[1] / 4) * i
+  #       y = -50
+  #       plt.text(x, y, cond, fontsize = 12, ha = 'center', va = 'top')
+  #   plt.imshow(concall, cmap = 'gray', interpolation = 'none')
+  #   plt.savefig(batch_filename, dpi = 300)
+  #   plt.close()
+  #   print("=============== Done ===============")
+
+  patient_names = []
+  print('Creating concatenated array...')
+  for patient in listfiles:
+      patient_files = []
+      for file in all_files:
+          if patient in file and "_seg." not in file:
+              patient_files.append(file)
+      patient_files.sort()
+      name = patient_files[0].split('Brats18_')[-1].split(f"_flair")[0]
+      patient_names.append(name)
+      #Load images
+      base_list = []
+      for file in patient_files:
+          img = nib.load(file)
+          data = img.get_fdata()
+          base_list.append(np.transpose(data[:,:,int(data.shape[-1] / 2)]))
+      conc = np.concatenate(np.array(base_list), axis = 1)
+      if np.array_equal(concall, np.zeros((50,50))):
+          concall = conc
+      else:
+          concall = np.concatenate([concall, conc], axis = 0)
+  print('Creating figure')
+  plt.figure(figsize = (8, 115))
+  plt.axis('off')
+  for i, name in enumerate(patient_names):
+      y = concall.shape[0] / int(len(patient_names) * 2) + (concall.shape[0] / len(patient_names)) * i
+      x = -250
+      plt.text(x, y, name, fontsize=12, ha='center', va='bottom')
+  for i, cond in enumerate(['FLAIR', 'T1', 'T1CE','T2']):
+      x = concall.shape[1] / 8 + (concall.shape[1] / 4) * i
+      y = -50
+      plt.text(x, y, cond, fontsize = 12, ha = 'center', va = 'top')
+  plt.imshow(concall, cmap = 'gray', interpolation = 'none')
+  plt.savefig(f"{filename.split('.')[0]}_{debut}-{fin}.{filename.split('.')[1]}", dpi = 300)
+  print("=============== Done ===============")
+
