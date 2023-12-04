@@ -63,9 +63,9 @@ def run_midway(midway_path):
   os.chdir(current_dir)
   return 'Midway mapping done.'
 
-def to_brats_format(midwaypath, outputpath, template_path = None):
+def to_brats_format(midwaypath, outputpath, template_path = None, val = False):
   '''/!\ Currently only works with template folder
-  Take the midway_output folder, or any folder containting folder each containing images in a specific modality,
+  Take the midway_output folder, or any folder containing folder each containing images in a specific modality,
   and create a Brats like format path, usable as input for brats based model.
   for data organization like MONAI 2018, having subdirectories, a template folder can be given as an argument to fill the subdirectories
   midwaypath: path of the midway folder
@@ -77,6 +77,8 @@ def to_brats_format(midwaypath, outputpath, template_path = None):
 
   if template_path != None:
     template_files = glob.glob(os.path.join(template_path, '*', '*', '*'), recursive = True)
+    if val == True:
+      template_files = glob.glob(os.path.join(template_path, '*', '*'), recursive = True)
     subdirs = glob.glob(os.path.join(template_path, '*'), recursive = True)
     for dirs in subdirs:
       if '.' in dirs:
@@ -84,9 +86,9 @@ def to_brats_format(midwaypath, outputpath, template_path = None):
       else:
         os.system(f"mkdir {outputpath}/{dirs.split('/')[-1]}")
 
-
   midway_files = glob.glob(os.path.join(midwaypath, '*', '*'), recursive=True)
   if template_path != None:
+    print(f"{len(midway_files), {len(template_files)}}")
     for template_file in template_files:
       for midway_file in midway_files:
         if '.' not in midway_file:
@@ -95,19 +97,56 @@ def to_brats_format(midwaypath, outputpath, template_path = None):
               midway_file = subfile
         if 'midway_mapped' in template_file:
           template_file = re.split('_(\d*)_midway_mapped', template_file)[0] + 'placeho'
-          print(template_file)
         if template_file.split('/')[-1][:-7] in midway_file:
           subdir = template_file.split('/')[-3]
           file_folder = template_file.split('/')[-2]
           if os.path.exists(os.path.join(outputpath, subdir, file_folder)) == False:
-            os.system(f"mkdir {outputpath}/{subdir}/{file_folder}")
+            if val == True:
+              os.system(f"mkdir {outputpath}/{file_folder}")
+            else:
+              os.system(f"mkdir {outputpath}/{subdir}/{file_folder}")
             for file in glob.glob(os.path.join(template_path, subdir, file_folder, '*')):
               if 'seg' in file:
                 os.system(f"cp -R {file} {outputpath}/{subdir}/{file_folder}/{file.split('/')[-1]}")
-
-          os.system(f"cp -R {midway_file} {outputpath}/{subdir}/{file_folder}/{midway_file.split('/')[-1]}")
+          if val == False:
+            os.system(f"cp -R {midway_file} {outputpath}/{subdir}/{file_folder}/{'_'.join(midway_file.split('/')[-1].split('_')[:-4])}.nii.gz")
+          else:
+            os.system(f"cp -R {midway_file} {outputpath}/{file_folder}/{'_'.join(midway_file.split('/')[-1].split('_')[:-4])}.nii.gz")
 
     return f'Brats formated folder created at {outputpath}'
+
+def custom_brats_format(newfolder, base_file_path, custom_path):
+  '''Allows, from a template Brats folder, to create a new folder with different files for a specific modality
+  newfolder: Name of the new folder to be created
+  base_file_path: Path of the BRats template
+  custom_path: Path of the new modality files'''
+
+  rempla_number = 0
+  os.system(f"cp -R {base_file_path} {newfolder}")
+  train_file_list = glob.glob(f"{newfolder}/*/*/*")
+  for file in train_file_list:
+      if file.endswith("flair.nii"):
+          name = file.split('.')[0]
+          for rempla in glob.glob(f"{custom_path}/*"):
+              if name.split('/')[-1] in rempla:
+                  os.system(f"rm {file}")
+                  if rempla.endswith(".gz"):
+                      UNCOMPRESS = True
+                      os.system(f"cp {rempla} {file}.gz")
+                  else:
+                      os.system(f"cp {rempla} {file}")
+                  rempla_number += 1
+
+  final_list = glob.glob(f"{newfolder}/*/*/*")
+  if UNCOMPRESS == True:
+      print(f"Uncompressing {rempla_number} files...")
+      for file in final_list:
+          if file.endswith(".gz"):
+              os.system(f"gunzip {file}")
+              os.system(f"rm {file}")
+      print("Done uncompressing.")
+  if rempla_number != 285:
+      print(f"Warning, number of file replaced = {rempla_number}!\nIf Brats18 needs 285 of each modality if using all files.")
 
 def omat_to_template(inputpath, templatepath, outputpath = None, transpose = None, flip = None):
   '''Copy template transformation matrix to inputpath file. Be aware that this does not actually register the input file,
